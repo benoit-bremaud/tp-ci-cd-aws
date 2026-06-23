@@ -1,0 +1,13 @@
+# Copier ce fichier en `inventory.ini` puis remplacer <IP_PUBLIQUE_AWS> par la
+# valeur `instance_ip` affichée par `terraform apply`.
+# inventory.ini n'est PAS versionné (il contient l'IP réelle) — voir .gitignore.
+
+[registry_hosts]
+# Liste des IPs (une par ligne)
+<IP_PUBLIQUE_AWS>
+
+[registry_hosts:vars]
+ansible_user=ubuntu
+ansible_ssh_private_key_file=registry-key-terraform.pem
+# Désactive la vérification de clé hôte pour éviter le prompt "Yes/No"
+ansible_ssh_common_args='-o StrictHostKeyChecking=no'

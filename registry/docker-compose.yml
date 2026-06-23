@@ -1,0 +1,38 @@
+# Template Ansible : {{ public_ip }} est remplacé au moment du déploiement
+# (module ansible.builtin.template). Version simplifiée du TP : registre en HTTP
+# sur le port 5000 (pas de Nginx/SSL — voir le README pour la note de sécurité).
+services:
+  registry:
+    image: registry:2
+    restart: always
+    environment:
+      REGISTRY_AUTH: htpasswd
+      REGISTRY_AUTH_HTPASSWD_REALM: Registry Realm
+      REGISTRY_AUTH_HTPASSWD_PATH: /auth/registry.password
+      REGISTRY_STORAGE_DELETE_ENABLED: "true"
+    volumes:
+      - ./data:/var/lib/registry
+      - ./auth:/auth:ro
+
+  ui:
+    image: joxit/docker-registry-ui:main
+    restart: always
+    environment:
+      - REGISTRY_TITLE=Ansible Deployed Registry
+      - REGISTRY_URL=https://{{ public_ip }}:443
+      - SINGLE_REGISTRY=true
+      - DELETE_IMAGES=true
+    depends_on:
+      - registry
+  
+  nginx:
+    image: nginx:alpine
+    restart: always
+    ports:
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/certs:ro
+    depends_on:
+      - registry
+      - ui

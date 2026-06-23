@@ -1,0 +1,82 @@
+---
+- name: Copy Nginx configuration
+    ansible.builtin.template:
+      src: nginx.conf
+      dest: "{{ project_dir }}/nginx.conf"
+      owner: ubuntu
+      group: ubuntu
+      mode: "0644"
+
+- name: Déploiement d'un Registry Docker sécurisé
+  hosts: registry_hosts
+  become: true
+  vars:
+    project_dir: "/home/ubuntu/registry-stack"
+    # IP publique récupérée automatiquement depuis l'inventaire
+    public_ip: "{{ ansible_host }}"
+
+  tasks:
+    # 1. Installation des dépendances
+    - name: Installation de Docker et des outils
+      ansible.builtin.apt:
+        update_cache: true
+        name:
+          - docker.io
+          - docker-compose-v2
+          - apache2-utils    # fournit htpasswd (avec -B pour bcrypt)
+          - openssl
+        state: present
+
+    - name: Ajout de l'utilisateur ubuntu au groupe docker
+      ansible.builtin.user:
+        name: ubuntu
+        groups: docker
+        append: true
+
+    # 2. Préparation de l'arborescence
+    - name: Création des dossiers
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: "0755"
+      loop:
+        - "{{ project_dir }}"
+        - "{{ project_dir }}/auth"
+        - "{{ project_dir }}/data"
+        - "{{ project_dir }}/ssl"
+
+    # 3. Authentification (admin / admin123 — défaut de LABORATOIRE).
+    #    IMPORTANT : le registre Docker n'accepte QUE des hash bcrypt -> htpasswd -B.
+    #    (community.general.htpasswd génère du MD5 par défaut, que le registre
+    #    rejette avec une erreur 401.)
+    - name: Génération du mot de passe (htpasswd, bcrypt)
+      ansible.builtin.command: >
+        htpasswd -Bbc {{ project_dir }}/auth/registry.password admin admin123
+      changed_when: true
+
+    # 4. Déploiement de la pile
+    - name: Copie du docker-compose.yml (templating de l'IP publique)
+      ansible.builtin.template:
+        src: docker-compose.yml
+        dest: "{{ project_dir }}/docker-compose.yml"
+        owner: ubuntu
+        group: ubuntu
+        mode: "0644"
+
+    - name: Generate self-signed SSL certificate
+      ansible.builtin.command: >
+        openssl req -x509 -nodes -days 365
+        -newkey rsa:2048
+        -keyout {{ project_dir }}/ssl/registry.key
+        -out {{ project_dir }}/ssl/registry.crt
+        -subj "/CN={{ public_ip }}"
+        -addext "subjectAltName=IP:{{ public_ip }}"
+      args:
+        creates: "{{ project_dir }}/ssl/registry.crt"
+
+    - name: Démarrage de la stack (force-recreate pour recharger le htpasswd)
+      ansible.builtin.command: docker compose up -d --force-recreate
+      args:
+        chdir: "{{ project_dir }}"

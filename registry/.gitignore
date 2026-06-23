@@ -1,0 +1,17 @@
+# Terraform — l'état contient la clé privée RSA EN CLAIR : ne JAMAIS versionner.
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+# (on conserve .terraform.lock.hcl, lui, dans le dépôt)
+
+# Clé SSH générée par Terraform
+*.pem
+
+# Inventaire réel (contient l'IP) — garder seulement inventory.ini.example
+inventory.ini
+
+# Secrets / données générés sur la machine
+auth/
+data/
