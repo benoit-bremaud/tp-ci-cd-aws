@@ -15,3 +15,4 @@ inventory.ini
 # Secrets / données générés sur la machine
 auth/
 data/
+ssl/    # certificat + CLÉ PRIVÉE SSL générés au déploiement : ne JAMAIS versionner

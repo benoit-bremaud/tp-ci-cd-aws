@@ -1,0 +1,14 @@
+# Configuration gitleaks pour ce TP.
+# On garde toutes les regles par defaut (detection des vrais secrets)...
+[extend]
+useDefault = true
+
+# ...et on ignore le SEUL identifiant de LABORATOIRE documente : admin / admin123.
+# Ce n'est pas un secret reel : il protege un registre jetable, il est volontairement
+# rendu public pour que le TP soit reproductible, et il figure deja dans le playbook.
+[allowlist]
+description = "Identifiant de laboratoire documente (admin/admin123) - non secret"
+regexes = [
+  '''admin:admin123''',
+  '''admin admin123''',
+]

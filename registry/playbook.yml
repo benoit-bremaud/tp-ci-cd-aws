@@ -1,12 +1,4 @@
 ---
-- name: Copy Nginx configuration
-    ansible.builtin.template:
-      src: nginx.conf
-      dest: "{{ project_dir }}/nginx.conf"
-      owner: ubuntu
-      group: ubuntu
-      mode: "0644"
-
 - name: Déploiement d'un Registry Docker sécurisé
   hosts: registry_hosts
   become: true
@@ -65,7 +57,7 @@
         group: ubuntu
         mode: "0644"
 
-    - name: Generate self-signed SSL certificate
+    - name: Génération du certificat SSL auto-signé (CN = IP publique)
       ansible.builtin.command: >
         openssl req -x509 -nodes -days 365
         -newkey rsa:2048
@@ -75,6 +67,16 @@
         -addext "subjectAltName=IP:{{ public_ip }}"
       args:
         creates: "{{ project_dir }}/ssl/registry.crt"
+
+    # 5. Configuration Nginx : le module template remplace {{ public_ip }}
+    #    (server_name) par l'IP réelle au moment du déploiement.
+    - name: Copie de la configuration Nginx (templating de l'IP publique)
+      ansible.builtin.template:
+        src: nginx.conf
+        dest: "{{ project_dir }}/nginx.conf"
+        owner: ubuntu
+        group: ubuntu
+        mode: "0644"
 
     - name: Démarrage de la stack (force-recreate pour recharger le htpasswd)
       ansible.builtin.command: docker compose up -d --force-recreate

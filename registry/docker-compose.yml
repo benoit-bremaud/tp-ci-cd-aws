@@ -1,7 +1,9 @@
-# Template Ansible : {{ public_ip }} est remplacé au moment du déploiement
-# (module ansible.builtin.template). Version simplifiée du TP : registre en HTTP
-# sur le port 5000 (pas de Nginx/SSL — voir le README pour la note de sécurité).
+# Pile du registre Docker SÉCURISÉ (HTTPS).
+# Fichier MODÈLE Ansible : {{ public_ip }} est remplacé par l'IP réelle au déploiement.
+# 3 services : registry (stockage) + ui (web), INTERNES, derrière nginx (proxy SSL).
 services:
+  # 1. Le registre : stocke les images. AUCUN "ports:" -> accessible uniquement
+  #    de l'intérieur (via nginx). L'authentification htpasswd est gérée ici.
   registry:
     image: registry:2
     restart: always
@@ -11,28 +13,31 @@ services:
       REGISTRY_AUTH_HTPASSWD_PATH: /auth/registry.password
       REGISTRY_STORAGE_DELETE_ENABLED: "true"
     volumes:
-      - ./data:/var/lib/registry
-      - ./auth:/auth:ro
+      - ./data:/var/lib/registry   # images stockées (persistance sur disque)
+      - ./auth:/auth:ro            # fichier htpasswd (monté en lecture seule)
 
+  # 2. L'interface web. Pas de "ports:" non plus -> on y accède via nginx (HTTPS).
   ui:
     image: joxit/docker-registry-ui:main
     restart: always
     environment:
       - REGISTRY_TITLE=Ansible Deployed Registry
-      - REGISTRY_URL=https://{{ public_ip }}:443
+      - REGISTRY_URL=https://{{ public_ip }}:443   # pointe vers le proxy HTTPS (443)
       - SINGLE_REGISTRY=true
       - DELETE_IMAGES=true
     depends_on:
       - registry
-  
+
+  # 3. Nginx : SEUL service exposé sur internet (443). Termine le SSL et aiguille
+  #    /v2/ -> registry, tout le reste -> ui (logique de routage dans nginx.conf).
   nginx:
     image: nginx:alpine
     restart: always
     ports:
-      - "443:443"
+      - "443:443"                              # unique porte d'entrée publique
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./ssl:/etc/nginx/certs:ro
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro  # config : routage + chemins SSL
+      - ./ssl:/etc/nginx/certs:ro              # certificat + clé (générés en 2A)
     depends_on:
       - registry
       - ui

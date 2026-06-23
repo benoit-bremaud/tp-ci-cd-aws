@@ -55,9 +55,10 @@ resource "local_file" "ssh_key" {
   file_permission = "0400"
 }
 
-# 3. Security Group (pare-feu) : SSH (22), UI (80), Registry Docker (5000)
+# 3. Security Group (pare-feu) : SSH (22) et HTTPS (443) uniquement.
+#    Le port 5000 (registre) reste fermé : on n'y accède qu'à travers Nginx.
 resource "aws_security_group" "registry_sg" {
-  name        = "registry-sg-simple"
+  name        = "registry-sg-secure"
   description = "Allow SSH and HTTPS"
 
   ingress {
